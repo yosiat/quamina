@@ -68,6 +68,10 @@ func newJSONFlattener() Flattener {
 	return &flattenJSON{fields: make([]Field, 0, 32), cleanSheet: true}
 }
 
+func NewJSONFlattener() Flattener {
+	return &flattenJSON{fields: make([]Field, 0, 32), cleanSheet: true}
+}
+
 func (fj *flattenJSON) Copy() Flattener {
 	return newJSONFlattener()
 }

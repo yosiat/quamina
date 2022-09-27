@@ -21,10 +21,13 @@ import (
 // coreMatcher uses a finite automaton to implement the matchesForJSONEvent and MatchesForFields functions.
 // state is the start of the automaton
 // namesUsed is a map of field names that are used in any of the patterns that this automaton encodes. Typically,
-// patterns only consider a subset of the fields in an incoming data object, and there is no reason to consider
-// fields that do not appear in patterns when using the automaton for matching
+//
+//	patterns only consider a subset of the fields in an incoming data object, and there is no reason to consider
+//	fields that do not appear in patterns when using the automaton for matching
+//
 // the updateable fields are grouped into the coreStart member so they can be updated atomically using atomic.Load()
-// and atomic.Store(). This is necessary for coreMatcher to be thread-safe.
+//
+//	and atomic.Store(). This is necessary for coreMatcher to be thread-safe.
 type coreMatcher struct {
 	updateable atomic.Value // always holds a *coreStart
 	lock       sync.Mutex
@@ -32,6 +35,7 @@ type coreMatcher struct {
 type coreStart struct {
 	state                     *fieldMatcher
 	namesUsed                 map[string]bool
+	pathsUsed                 map[string]bool
 	presumedExistFalseMatches *matchSet
 }
 
@@ -40,6 +44,7 @@ func newCoreMatcher() *coreMatcher {
 	m.updateable.Store(&coreStart{
 		state:                     newFieldMatcher(),
 		namesUsed:                 make(map[string]bool),
+		pathsUsed:                 make(map[string]bool),
 		presumedExistFalseMatches: newMatchSet(),
 	})
 	return &m
@@ -49,8 +54,9 @@ func (m *coreMatcher) start() *coreStart {
 	return m.updateable.Load().(*coreStart)
 }
 
-// addPattern - the patternBytes is a JSON object. The X is what the matcher returns to indicate that the
-// provided pattern has been matched. In many applications it might be a string which is the pattern's name.
+// AddPattern - the patternBytes is a JSON object. The X is what the matcher returns to indicate that the
+//
+//	provided pattern has been matched. In many applications it might be a string which is the pattern's name.
 func (m *coreMatcher) addPattern(x X, patternJSON string) error {
 	patternFields, patternNamesUsed, err := patternFromJSON([]byte(patternJSON))
 	if err != nil {
@@ -69,15 +75,23 @@ func (m *coreMatcher) addPattern(x X, patternJSON string) error {
 	// we build up the new coreMatcher state in freshStart so we can atomically switch it in once complete
 	freshStart := &coreStart{}
 	freshStart.namesUsed = make(map[string]bool)
+	freshStart.pathsUsed = make(map[string]bool)
 	current := m.start()
 	freshStart.state = current.state
 
 	for k := range current.namesUsed {
 		freshStart.namesUsed[k] = true
 	}
+	for k := range current.pathsUsed {
+		freshStart.pathsUsed[k] = true
+	}
 	for used := range patternNamesUsed {
 		freshStart.namesUsed[used] = true
 	}
+	for _, pf := range patternFields {
+		freshStart.pathsUsed[pf.path] = true
+	}
+
 	freshStart.presumedExistFalseMatches = newMatchSet()
 	for presumedExistsFalseMatch := range current.presumedExistFalseMatches.set {
 		freshStart.presumedExistFalseMatches = freshStart.presumedExistFalseMatches.addX(presumedExistsFalseMatch)
@@ -132,8 +146,9 @@ func (m *coreMatcher) matchesForJSONEvent(event []byte) ([]X, error) {
 	return m.matchesForFields(fields)
 }
 
-// matchesForFields takes a list of Field structures and sorts them by pathname; the fields in a pattern to
-// matched are similarly sorted; thus running an automaton over them works
+// MatchesForFields takes a list of Field structures and sorts them by pathname; the fields in a pattern to
+//
+//	matched are similarly sorted; thus running an automaton over them works
 func (m *coreMatcher) matchesForFields(fields []Field) ([]X, error) {
 	sort.Slice(fields, func(i, j int) bool { return string(fields[i].Path) < string(fields[j].Path) })
 	return m.matchesForSortedFields(fields).matches(), nil
@@ -205,14 +220,21 @@ func noArrayTrailConflict(from []ArrayPos, to []ArrayPos) bool {
 	for _, fromAPos := range from {
 		for _, toAPos := range to {
 			if fromAPos.Array == toAPos.Array && fromAPos.Pos != toAPos.Pos {
+				//fmt.Printf("Conflict: from [%+v] to [%+v]\n", from, to)
 				return false
 			}
 		}
 	}
+
+	//fmt.Printf("NoConflict: from [%+v] to [%+v]\n", from, to)
 	return true
 }
 
 func (m *coreMatcher) IsNameUsed(label []byte) bool {
 	_, ok := m.start().namesUsed[string(label)]
 	return ok
+}
+
+func (m *coreMatcher) Paths() map[string]bool {
+	return m.start().pathsUsed
 }

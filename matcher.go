@@ -5,4 +5,5 @@ type matcher interface {
 	matchesForFields(fields []Field) ([]X, error)
 	deletePatterns(x X) error
 	IsNameUsed(label []byte) bool
+	Paths() map[string]bool
 }

@@ -149,3 +149,20 @@ func (q *Quamina) MatchesForEvent(event []byte) ([]X, error) {
 	matches, err := q.matcher.matchesForFields(fields)
 	return matches, err
 }
+
+func (q *Quamina) MatchesForFields(fields []Field) ([]X, error) {
+	matches, err := q.matcher.matchesForFields(fields)
+	return matches, err
+}
+
+func (q *Quamina) IsNameUsed(label []byte) bool {
+	return q.matcher.IsNameUsed(label)
+}
+
+func (q *Quamina) MatcherStats() string {
+	return matcherStats(q.matcher.(*coreMatcher))
+}
+
+func (q *Quamina) Paths() map[string]bool {
+	return q.matcher.Paths()
+}
