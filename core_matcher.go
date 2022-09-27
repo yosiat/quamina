@@ -236,5 +236,5 @@ func (m *coreMatcher) IsNameUsed(label []byte) bool {
 }
 
 func (m *coreMatcher) Paths() map[string]bool {
-	return m.start().pathsUsed
+  return m.start().pathsUsed
 }
