@@ -1,64 +1,54 @@
 package quamina
 
 import (
-	"os"
+	"io/ioutil"
 	"testing"
 )
 
-func equal(a []byte, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
+func Test_JX_FJBasic(t *testing.T) {
+	j := `{ "a": 1, "b": "two", "c": true, "d": null, "e": { "e1": 2, "e2": 3.02e-5}, "f": [33e2, "x", true, false, null], "g": false}`
+	allYes := fakeJxMatcher("a", "b", "c", "d", "e\ne1", "e\ne2", "f", "g")
 
-func TestFJBasic(t *testing.T) {
-	j := `{ "a": 1, "b": "two", "c": true, "d": null, "e": { "e1": 2, "e2": 3.02e-5}, "f": [33e2, "x", true, false, null], "g": false, "h": [], "i": {}}`
-	allYes := fakeMatcher("a", "b", "c", "d", "e", "e1", "e2", "f", "g", "h", "i")
-
-	f := newJSONFlattener()
+	f := newJxFlattener(buildPathsIndex(allYes))
 	list, err := f.Flatten([]byte(j), allYes)
-	printFields("Quamina", list)
 	if err != nil {
 		t.Error("E: " + err.Error())
 	}
-	wantedPaths := []string{"a", "b", "c", "d", "e\ne1", "e\ne2", "f", "f", "f", "f", "f", "g", "h", "i"}
+	wantedPaths := []string{"a", "b", "c", "d", "e\ne1", "e\ne2", "f", "f", "f", "f", "f", "g"}
 	wantedVals := []string{"1", "\"two\"", "true", "null", "2", "3.02e-5", "33e2", "\"x\"", "true", "false", "null", "false"}
 	if len(list) != len(wantedVals) {
 		t.Errorf("list len %d wanted %d", len(list), len(wantedVals))
 	}
 	for i, field := range list {
-		if !equal([]byte(wantedPaths[i]), field.Path) {
+		if !bequal([]byte(wantedPaths[i]), field.Path) {
 			t.Errorf("pos %d wanted %s got %s", i, wantedPaths[i], field.Path)
 		}
-		if !equal([]byte(wantedVals[i]), field.Val) {
+		if !bequal([]byte(wantedVals[i]), field.Val) {
 			t.Errorf("pos %d wanted %s got %s", i, wantedVals[i], field.Val)
 		}
 	}
 
-	justAF := fakeMatcher("a", "f")
-	f = newJSONFlattener()
+	justAF := fakeJxMatcher("a", "f")
+	f = newJxFlattener(buildPathsIndex(justAF))
 	list, _ = f.Flatten([]byte(j), justAF)
 	wantedPaths = []string{"a", "f", "f", "f", "f", "f"}
 	wantedVals = []string{"1", "33e2", "\"x\"", "true", "false", "null"}
 	for i, field := range list {
-		if !equal([]byte(wantedPaths[i]), field.Path) {
+		if !bequal([]byte(wantedPaths[i]), field.Path) {
 			t.Errorf("pos %d wanted %s got %s", i, wantedPaths[i], field.Path)
 		}
-		if !equal([]byte(wantedVals[i]), field.Val) {
+		if !bequal([]byte(wantedVals[i]), field.Val) {
 			t.Errorf("pos %d wanted %s got %s", i, wantedVals[i], field.Val)
 		}
 	}
 }
 
-func TestFJ10Lines(t *testing.T) {
-	geo := fakeMatcher("type", "geometry")
-	testTrackerSelection(t, newJSONFlattener(), geo, "L0", "testdata/cl-sample-0", []string{"type", "geometry\ntype"}, []string{`"Feature"`, `"Polygon"`})
+func Test_JX_FJ10Lines(t *testing.T) {
+	geo := fakeJxMatcher("type", "geometry")
+	testTrackerSelection(newJSONFlattener(), geo, "L0", "testdata/cl-sample-0",
+		[]string{"type", "geometry\ntype"},
+		[]string{`"Feature"`, `"Polygon"`},
+		t)
 
 	coordVals := []string{
 		"-122.45409388918634",
@@ -95,33 +85,33 @@ func TestFJ10Lines(t *testing.T) {
 		"geometry\ncoordinates",
 	}
 
-	coords := fakeMatcher("coordinates", "geometry")
-	testTrackerSelection(t, newJSONFlattener(), coords, "L1", "testdata/cl-sample-1", coordNames, coordVals)
+	coords := fakeJxMatcher("coordinates", "geometry")
+	testTrackerSelection(newJSONFlattener(), coords, "L1", "testdata/cl-sample-1",
+		coordNames, coordVals, t)
 
 	l2names := []string{"properties\nFROM_ST", "properties\nODD_EVEN"}
 	l2vals := []string{`"1917"`, `"O"`}
-	proFoOd := fakeMatcher("properties", "FROM_ST", "ODD_EVEN")
-	testTrackerSelection(t, newJSONFlattener(), proFoOd, "L2", "testdata/cl-sample-2", l2names, l2vals)
+	proFoOd := fakeJxMatcher("properties", "FROM_ST", "ODD_EVEN")
+	testTrackerSelection(newJSONFlattener(), proFoOd, "L2", "testdata/cl-sample-2",
+		l2names, l2vals, t)
 }
 
 // left here as a memorial
-func TestMinimal(t *testing.T) {
+func Test_JX_Minimal(t *testing.T) {
 	a := `{"a": 1}`
-	nt := fakeMatcher("a")
-	f := newJSONFlattener()
+	nt := fakeJxMatcher("a")
+	f := newJxFlattener(buildPathsIndex(nt))
 	fields, err := f.Flatten([]byte(a), nt)
 	if err != nil {
 		t.Error("Huh? " + err.Error())
 	}
-	if len(fields) != 1 || !equal(fields[0].Path, []byte("a")) || len(fields[0].Val) != 1 || fields[0].Val[0] != '1' {
+	if len(fields) != 1 || !bequal(fields[0].Path, []byte("a")) || len(fields[0].Val) != 1 || fields[0].Val[0] != '1' {
 		t.Error("Name/Val wrong")
 	}
 }
 
-func testTrackerSelection(t *testing.T, fj Flattener, tracker NameTracker, label string, filename string, wantedPaths []string, wantedVals []string) {
-	t.Helper()
-
-	event, err := os.ReadFile(filename)
+func test_JX_TrackerSelection(fj Flattener, tracker NameTracker, label string, filename string, wantedPaths []string, wantedVals []string, t *testing.T) {
+	event, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Error(filename + ": " + err.Error())
 	}
@@ -131,7 +121,7 @@ func testTrackerSelection(t *testing.T, fj Flattener, tracker NameTracker, label
 		t.Error(label + ": " + err.Error())
 	}
 	for i, field := range list {
-		if !equal([]byte(wantedPaths[i]), field.Path) {
+		if !bequal([]byte(wantedPaths[i]), field.Path) {
 			t.Errorf("pos %d wanted Path %s got %s", i, wantedPaths[i], field.Path)
 		}
 		if wantedVals[i] != string(field.Val) {
@@ -140,9 +130,9 @@ func testTrackerSelection(t *testing.T, fj Flattener, tracker NameTracker, label
 	}
 }
 
-func TestErrorCases(t *testing.T) {
-	tracker := fakeMatcher("a", "b", "c", "d", "e", "f")
-	fj := newJSONFlattener().(*flattenJSON)
+func Test_JX_ErrorCases(t *testing.T) {
+	tracker := fakeJxMatcher("a", "b", "c", "d", "e", "f")
+	fj := newJxFlattener(buildPathsIndex(tracker))
 
 	e := ` { "a" : [1]}`
 	fields, err := fj.Flatten([]byte(e), tracker)
@@ -153,7 +143,7 @@ func TestErrorCases(t *testing.T) {
 		t.Error("")
 	}
 	fj.reset()
-	if fj.eventIndex != 0 || len(fj.fields) != 0 || fj.skipping != 0 || len(fj.arrayTrail) != 0 {
+	if fj.arrayCount != 0 || len(fj.fields) != 0 || len(fj.arrayTrail) != 0 {
 		t.Error("reset didn't work")
 	}
 	badUtf := "a" + string([]byte{0, 1, 2}) + "z"
@@ -208,10 +198,20 @@ func TestErrorCases(t *testing.T) {
 	}
 }
 
-func fakeMatcher(segs ...string) *coreMatcher {
+func fakeJxMatcher(segs ...string) *coreMatcher {
 	m := newCoreMatcher()
 	for _, seg := range segs {
-		m.start().namesUsed[seg] = true
+		m.start().pathsUsed[seg] = true
 	}
 	return m
+}
+
+func buildPathsIndex(m *coreMatcher) pathsIndex {
+	p := newPathsIndex()
+
+	for path := range m.start().pathsUsed {
+		p.add(path)
+	}
+
+	return p
 }

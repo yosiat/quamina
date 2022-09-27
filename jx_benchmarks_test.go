@@ -178,9 +178,8 @@ func newCustomCoreMatcher() *Quamina {
 	return q
 }
 
-func printFields(typ string, fields []Field, line []byte) {
+func printFields(typ string, fields []Field) {
 	fmt.Println("> Fields")
-	fmt.Printf("[Input] %s\n\n", string(line))
 
 	for _, field := range fields {
 		fmt.Printf("[%s] Path [%s] Val [%s] ArrayTrail [%+v]\n", typ, strings.ReplaceAll(string(field.Path), "\n", "->"), field.Val, field.ArrayTrail)

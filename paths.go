@@ -34,6 +34,12 @@ func newPathsIndex() pathsIndex {
 func (p pathsIndex) add(path string) {
 	parts := strings.Split(path, PATH_SEPARATOR)
 
+	if len(parts) == 1 {
+		// It's a direct field.
+		p.fields[path] = []byte(path)
+		return
+	}
+
 	var node Node
 	node = p.getOrCreate(parts[0])
 

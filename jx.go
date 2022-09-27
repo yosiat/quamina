@@ -85,7 +85,6 @@ func (fj *jxFlattener) traverseNode(n Node) error {
 	if err != nil {
 		return fmt.Errorf("failed traversing node: %s", err)
 	}
-
 	for objIter.Next() {
 		key := BinaryString(objIter.Key())
 		//fmt.Printf("[%s] entering\n", key)
