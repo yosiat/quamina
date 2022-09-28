@@ -270,3 +270,13 @@ func TestCityLots_JX(t *testing.T) {
 		}
 	}
 }
+
+func buildPathsIndex(m *coreMatcher) pathsIndex {
+	p := newPathsIndex()
+
+	for path := range m.start().pathsUsed {
+		p.add(path)
+	}
+
+	return p
+}
