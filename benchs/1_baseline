@@ -1,0 +1,9 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/timbray/quamina
+Benchmark_JxFlattener_ContextFields-10              	 6402234	       181.1 ns/op	      16 B/op	       1 allocs/op
+Benchmark_JsonFlattener_ContextFields-10            	   70999	     16936 ns/op	     512 B/op	      20 allocs/op
+Benchmark_JsonFlattner_Evaluate_ContextFields-10    	   67792	     17683 ns/op	    1104 B/op	      37 allocs/op
+Benchmark_JxFlattner_Evaluate_ContextFields-10      	 1871936	       641.6 ns/op	     560 B/op	      15 allocs/op
+PASS
+ok  	github.com/timbray/quamina	6.052s
